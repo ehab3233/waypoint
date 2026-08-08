@@ -26,8 +26,11 @@ async function main() {
         name    text NOT NULL,
         country text NOT NULL,
         cc      text NOT NULL,
+        region  text,
         lat     double precision NOT NULL,
-        lon     double precision NOT NULL
+        lon     double precision NOT NULL,
+        hub     boolean NOT NULL DEFAULT false,
+        gateway boolean NOT NULL DEFAULT false
       );
       CREATE TABLE IF NOT EXISTS legs (
         id       serial PRIMARY KEY,
@@ -59,12 +62,19 @@ async function main() {
       );
     `);
 
+    // Older installs predate these columns; add them before loading.
+    await client.query(`
+      ALTER TABLE cities ADD COLUMN IF NOT EXISTS region text;
+      ALTER TABLE cities ADD COLUMN IF NOT EXISTS hub boolean NOT NULL DEFAULT false;
+      ALTER TABLE cities ADD COLUMN IF NOT EXISTS gateway boolean NOT NULL DEFAULT false;
+    `);
+
     await client.query('TRUNCATE legs, rail_passes; DELETE FROM cities;');
 
     for (const c of dataset.cities) {
       await client.query(
-        'INSERT INTO cities (id, name, country, cc, lat, lon) VALUES ($1,$2,$3,$4,$5,$6)',
-        [c.id, c.name, c.country, c.cc, c.lat, c.lon]
+        'INSERT INTO cities (id, name, country, cc, region, lat, lon, hub, gateway) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)',
+        [c.id, c.name, c.country, c.cc, c.region || null, c.lat, c.lon, !!c.hub, !!c.gateway]
       );
     }
     for (const l of dataset.legs) {

@@ -21,7 +21,11 @@ async function loadData() {
   const pool = getPool();
   if (pool) {
     try {
-      const cities = (await pool.query('SELECT id, name, country, cc, lat, lon FROM cities ORDER BY name')).rows;
+      const cities = (
+        await pool.query(
+          'SELECT id, name, country, cc, region, lat, lon, hub, gateway FROM cities ORDER BY name'
+        )
+      ).rows;
       const legs = (
         await pool.query(
           'SELECT from_id AS "from", to_id AS "to", mode, price::float, min, xfers, op, pass, res::float, note FROM legs'
@@ -52,7 +56,13 @@ async function loadData() {
 }
 
 app.get('/api/health', (req, res) => {
-  res.json({ ok: true, dataSource, cities: cityList.length });
+  res.json({
+    ok: true,
+    dataSource,
+    cities: cityList.length,
+    curatedLegs: graph ? graph.curatedCount : 0,
+    syntheticLegs: graph ? graph.syntheticCount : 0,
+  });
 });
 
 app.get('/api/cities', (req, res) => {
@@ -60,15 +70,18 @@ app.get('/api/cities', (req, res) => {
 });
 
 app.post('/api/plan', (req, res) => {
-  const { cities: cityIds, locks, roundTrip, minNights } = req.body || {};
+  const body = req.body || {};
+  const { cities: cityIds, locks, roundTrip, nights, defaultNights, modes } = body;
   try {
     const itineraries = plan(
       graph,
       {
         cityIds,
-        locks: locks || {},
+        locks: locks && typeof locks === 'object' ? locks : {},
         roundTrip: !!roundTrip,
-        minNights: Math.max(0, Math.min(7, Number(minNights ?? 2))),
+        nights: nights && typeof nights === 'object' ? nights : {},
+        defaultNights: defaultNights ?? 2,
+        modes: Array.isArray(modes) ? modes : null,
       },
       passes
     );
@@ -83,7 +96,7 @@ app.post('/api/plan', (req, res) => {
     if (pool) {
       pool
         .query('INSERT INTO searches (payload) VALUES ($1)', [
-          JSON.stringify({ cities: cityIds, locks, roundTrip, minNights }),
+          JSON.stringify({ cities: cityIds, locks, roundTrip, nights, defaultNights, modes }),
         ])
         .catch(() => {});
     }

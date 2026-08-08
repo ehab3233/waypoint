@@ -3,8 +3,10 @@
 // The optimizer is deliberately fast and dumb: brute-force permutations
 // over the pairwise cost matrix from the graph layer. 8! = 40,320 — trivial.
 
-const { PROFILES } = require('./graph');
+const { PROFILES, ALL_MODES, Graph } = require('./graph');
 const { railPassVerdict } = require('./railpass');
+
+const MODE_LABEL = { train: 'rail', bus: 'coach', flight: 'flights', ferry: 'ferries' };
 
 function fmtDur(min) {
   const h = Math.floor(min / 60);
@@ -43,26 +45,26 @@ function* orderings(cityIds, locks) {
   }
 }
 
-function routeScore(graph, profile, order, roundTrip) {
+function routeScore(graph, profile, order, roundTrip, modes) {
   let score = 0;
   const seq = roundTrip ? [...order, order[0]] : order;
   for (let i = 0; i < seq.length - 1; i++) {
-    const hop = graph.hop(profile, seq[i], seq[i + 1]);
+    const hop = graph.hop(profile, seq[i], seq[i + 1], modes);
     if (!hop) return Infinity;
     score += hop.score;
   }
   return score;
 }
 
-function buildHops(graph, profile, order, roundTrip) {
+function buildHops(graph, profile, order, roundTrip, modes) {
   const seq = roundTrip ? [...order, order[0]] : order;
   const hops = [];
-  for (let i = 0; i < seq.length - 1; i++) hops.push(graph.hop(profile, seq[i], seq[i + 1]));
+  for (let i = 0; i < seq.length - 1; i++) hops.push(graph.hop(profile, seq[i], seq[i + 1], modes));
   return hops;
 }
 
 // Nearest-neighbour by geography from the same starting city — the order a
-// human eyeballing a map would pick. Used as the baseline for "why this won".
+// human eyeballing a map would pick. The baseline for "why this won".
 function geographicOrder(graph, cityIds, startId) {
   const remaining = new Set(cityIds);
   const order = [startId];
@@ -107,7 +109,7 @@ function detectBacktrack(graph, order) {
   return null;
 }
 
-function explain(graph, profile, order, hops, naive, roundTrip) {
+function explain(graph, order, hops, naive, roundTrip, modes, nightsFor) {
   const notes = [];
   const name = (id) => graph.city(id).name;
 
@@ -135,19 +137,29 @@ function explain(graph, profile, order, hops, naive, roundTrip) {
     );
   }
 
+  // Long overland journeys that a flight rescued.
   for (const hop of hops) {
-    for (const seg of hop.segments) {
-      if (seg.mode === 'flight' && seg.price <= 45) {
-        notes.push(
-          `The €${seg.price} ${seg.op} hop ${name(seg.from)}→${name(seg.to)} is doing heavy lifting — these two are not surface-transport neighbours, and budget carriers only fly where their hubs are.`
-        );
-        break; // one flight callout per hop is enough
-      }
+    const flightSeg = hop.segments.find((s) => s.mode === 'flight');
+    if (flightSeg && hop.durationMin > 240) {
+      notes.push(
+        `${name(hop.from)} → ${name(hop.to)} is a ${flightSeg.estimated ? 'flight' : `€${flightSeg.price} ${flightSeg.op} flight`} for a reason — overland this pair is a multi-day slog, and the air network only connects it through ${hop.segments.length > 1 ? 'a hub' : 'a direct service'}.`
+      );
+      break;
+    }
+  }
+
+  for (const hop of hops) {
+    const cheapFlight = hop.segments.find((s) => s.mode === 'flight' && !s.estimated && s.price <= 45);
+    if (cheapFlight) {
+      notes.push(
+        `The €${cheapFlight.price} ${cheapFlight.op} hop ${name(cheapFlight.from)}→${name(cheapFlight.to)} is doing heavy lifting — these two are not surface-transport neighbours, and budget carriers only fly where their hubs are.`
+      );
+      break;
     }
   }
 
   if (!roundTrip && order.length > 1) {
-    const ret = graph.hop('cheapest', order[order.length - 1], order[0]);
+    const ret = graph.hop('cheapest', order[order.length - 1], order[0], modes);
     if (ret) {
       notes.push(
         `Open-jaw: arrive in ${name(order[0])}, leave from ${name(order[order.length - 1])}. Forcing a return to ${name(order[0])} would add ~€${ret.price} and ${fmtDur(ret.durationMin)}.`
@@ -155,10 +167,32 @@ function explain(graph, profile, order, hops, naive, roundTrip) {
     }
   }
 
-  return notes.slice(0, 5);
+  const zeroNight = order.filter((id) => nightsFor(id) === 0);
+  if (zeroNight.length) {
+    notes.push(
+      `${zeroNight.map(name).join(' and ')} ${zeroNight.length === 1 ? 'is' : 'are'} set to zero nights — that is a drive-by, not a visit. Raise the per-city stay if you actually want to see ${zeroNight.length === 1 ? 'it' : 'them'}.`
+    );
+  }
+
+  if (modes.length < ALL_MODES.length) {
+    notes.push(
+      `Limited to ${modes.map((m) => MODE_LABEL[m]).join(', ')} — excluding the other modes may be what makes this order win.`
+    );
+  }
+
+  return notes.slice(0, 6);
 }
 
-function plan(graph, { cityIds, locks = {}, roundTrip = false, minNights = 2 }, passes) {
+function plan(graph, opts, passes) {
+  const {
+    cityIds,
+    locks = {},
+    roundTrip = false,
+    nights = {},
+    defaultNights = 2,
+    modes: rawModes,
+  } = opts || {};
+
   if (!Array.isArray(cityIds) || cityIds.length < 2 || cityIds.length > 8) {
     throw Object.assign(new Error('Pick between 2 and 8 destinations.'), { status: 400 });
   }
@@ -169,48 +203,57 @@ function plan(graph, { cityIds, locks = {}, roundTrip = false, minNights = 2 }, 
     throw Object.assign(new Error('Duplicate destinations in the list.'), { status: 400 });
   }
 
+  const modes = Graph.normaliseModes(rawModes);
+  const clampNights = (v) => Math.max(0, Math.min(30, Math.round(Number(v) || 0)));
+  const baseNights = clampNights(defaultNights);
+  const nightsFor = (id) =>
+    Object.prototype.hasOwnProperty.call(nights, id) ? clampNights(nights[id]) : baseNights;
+
   const itineraries = [];
   for (const profile of Object.keys(PROFILES)) {
     let bestOrder = null;
     let bestScore = Infinity;
     for (const order of orderings(cityIds, locks)) {
-      const s = routeScore(graph, profile, order, roundTrip);
+      const s = routeScore(graph, profile, order, roundTrip, modes);
       if (s < bestScore) {
         bestScore = s;
         bestOrder = order;
       }
     }
-    if (!bestOrder) {
-      throw Object.assign(new Error('No feasible route connects these destinations.'), { status: 422 });
+    if (!bestOrder || bestScore === Infinity) {
+      throw Object.assign(
+        new Error(
+          modes.length < ALL_MODES.length
+            ? `No route connects these destinations using only ${modes.map((m) => MODE_LABEL[m]).join(', ')}. Try allowing more transport modes.`
+            : 'No feasible route connects these destinations.'
+        ),
+        { status: 422 }
+      );
     }
 
-    const hops = buildHops(graph, profile, bestOrder, roundTrip);
+    const hops = buildHops(graph, profile, bestOrder, roundTrip, modes);
     const t = totals(hops);
     const naiveOrder = geographicOrder(graph, cityIds, bestOrder[0]);
-    const naiveHops = buildHops(graph, profile, naiveOrder, roundTrip);
+    const naiveHops = buildHops(graph, profile, naiveOrder, roundTrip, modes);
     const naive = naiveHops.every(Boolean)
       ? { order: naiveOrder, totals: totals(naiveHops) }
       : null;
 
-    const nights = minNights * (bestOrder.length - (roundTrip ? 0 : 1));
-    const estDays = Math.max(t.hops, Math.round(nights + t.durationMin / 60 / 12));
-
-    const notes = explain(graph, profile, bestOrder, hops, naive, roundTrip);
-    if (minNights === 0) {
-      notes.push(
-        'Minimum stay is 0 nights — some stops may turn into drive-by visits. Raise the slider if you actually want to see the cities.'
-      );
-    }
+    const nightsTotal = bestOrder.reduce((s, id) => s + nightsFor(id), 0);
+    const longHaulDays = hops.filter((h) => h.durationMin > 720).length;
+    const estDays = nightsTotal + 1 + longHaulDays;
 
     itineraries.push({
       profile,
       label: PROFILES[profile].label,
       order: bestOrder,
       roundTrip,
-      totals: { ...t, estDays, nights },
+      modes,
+      nights: Object.fromEntries(bestOrder.map((id) => [id, nightsFor(id)])),
+      totals: { ...t, estDays, nights: nightsTotal, estimated: hops.some((h) => h.estimated) },
       hops,
       railPass: railPassVerdict(hops, passes),
-      notes,
+      notes: explain(graph, bestOrder, hops, naive, roundTrip, modes, nightsFor),
       naive,
     });
   }

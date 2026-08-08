@@ -5,45 +5,56 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Waypoint — the right order for your trip</title>
 <meta name="description" content="Enter a list of destinations, get the optimal order and the actual way to travel between them." />
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="vendor/ds/styles.css" />
 <link rel="stylesheet" href="vendor/leaflet/leaflet.css" />
 <link rel="stylesheet" href="style.css" />
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧭</text></svg>" />
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ec3013' stroke-width='2'><circle cx='12' cy='12' r='10'/><path d='m16.24 7.76-1.804 5.411a2 2 0 0 1-1.265 1.265L7.76 16.24l1.804-5.411a2 2 0 0 1 1.265-1.265z'/></svg>" />
 </head>
 <body>
 
-<header class="topbar">
-  <div class="wrap topbar-inner">
-    <a class="brand" href="/">
-      <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true">
-        <path d="M16 2C10 2 5.5 6.6 5.5 12.4 5.5 20.2 16 30 16 30s10.5-9.8 10.5-17.6C26.5 6.6 22 2 16 2z" fill="currentColor"/>
-        <circle cx="16" cy="12.5" r="4.2" fill="var(--paper)"/>
+<header class="nav">
+  <div class="wrap nav-inner">
+    <a class="nav-brand" href="/">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="12" cy="12" r="10"/>
+        <path d="m16.24 7.76-1.804 5.411a2 2 0 0 1-1.265 1.265L7.76 16.24l1.804-5.411a2 2 0 0 1 1.265-1.265z"/>
       </svg>
-      <span>Waypoint</span>
+      WAYPOINT
     </a>
-    <span class="topbar-tag">Rome2Rio answers A→B. We answer “here are five places — sort it out.”</span>
+    <span class="nav-tag">Rome2Rio answers A→B. We answer “here are five places — sort it out.”</span>
   </div>
 </header>
 
 <section class="hero">
-  <svg class="hero-lines" viewBox="0 0 1200 400" preserveAspectRatio="none" aria-hidden="true">
-    <path d="M-20,320 C200,180 380,340 560,220 S920,80 1220,180" />
-    <path d="M-20,250 C260,120 520,280 760,140 S1040,220 1220,90" />
-    <circle cx="560" cy="220" r="5"/><circle cx="760" cy="140" r="5"/><circle cx="200" cy="255" r="5"/><circle cx="980" cy="152" r="5"/>
-  </svg>
-  <div class="wrap hero-inner">
-    <h1>Five cities.<br><em>One right order.</em></h1>
-    <p class="hero-sub">Type in the places you want to see. Waypoint treats your trip as a travelling-salesman problem weighted by <strong>real fares and timetables</strong> — not distance — and hands back the cheapest, fastest and least painful ways to string it together.</p>
+  <div class="wrap">
+    <p class="kicker">Multi-city routing</p>
+    <h1>Five cities.<br>One right order.</h1>
+    <div class="hero-grid">
+      <p class="lede">Type in the places you want to see. Waypoint treats your trip as a travelling-salesman problem weighted by <strong>real fares and timetables</strong> — not distance — and hands back the cheapest, fastest and least painful ways to string it together.</p>
+      <p class="lede-note">Every other router answers A→B and leaves the ordering to you. The order is the hard part: cheapest and fastest routes between cities have almost nothing to do with which ones look close together on a map. Works worldwide — rail, coach, ferry and air.</p>
+    </div>
+  </div>
+</section>
+
+<section class="statrow">
+  <div class="wrap statrow-grid">
+    <div class="stat"><b id="stat-cities">—</b><span>Cities worldwide</span></div>
+    <div class="stat"><b id="stat-countries">—</b><span>Countries</span></div>
+    <div class="stat"><b id="stat-legs">—</b><span>Costed legs</span></div>
+    <div class="stat"><b>40,320</b><span>Orderings tested</span></div>
   </div>
 </section>
 
 <main class="wrap">
-  <section class="planner card" id="planner">
+  <section class="planner" id="planner">
+    <div class="section-head">
+      <p class="kicker">The planner</p>
+      <h2>Enter your destinations</h2>
+    </div>
+
     <div class="field">
-      <label for="city-input">Destinations <span class="hint">3–8 places, any order — that's the point</span></label>
-      <div class="chip-box" id="chip-box">
+      <label for="city-input">Destinations <span class="text-muted">— 3–8 places, anywhere in the world, any order. That’s the point.</span></label>
+      <div class="chipbox" id="chip-box">
         <div id="chips" class="chips"></div>
         <div class="autocomplete">
           <input id="city-input" type="text" autocomplete="off" spellcheck="false"
@@ -51,62 +62,143 @@
           <ul id="suggestions" class="suggestions" hidden></ul>
         </div>
       </div>
-      <p class="hint hint-lock">📌 Click the pin on a chip to lock a city to a position — first, last, or a fixed slot (flight already booked, wedding on the 14th). Everything else reorders around it.</p>
+      <p class="field-note" id="backspace-hint" hidden></p>
+      <p class="field-note">Set nights per city with <b>−</b> / <b>+</b>. Use the pin to lock a city to a position — first, last, or a fixed slot (flight already booked, wedding on the 14th). Everything else reorders around it.</p>
     </div>
 
     <div class="controls">
       <div class="control">
         <span class="control-label">Trip shape</span>
-        <div class="segmented" role="radiogroup" aria-label="Trip shape">
-          <button type="button" class="seg active" data-trip="open" title="Fly into your first city, out of your last — no forced return">Open-jaw</button>
-          <button type="button" class="seg" data-trip="round" title="Finish back where you started">Round trip</button>
+        <div class="seg" role="radiogroup" aria-label="Trip shape">
+          <label class="seg-opt" title="Fly into your first city, out of your last — no forced return">
+            <input type="radio" name="trip" value="open" checked /> Open-jaw
+          </label>
+          <label class="seg-opt" title="Finish back where you started">
+            <input type="radio" name="trip" value="round" /> Round trip
+          </label>
         </div>
       </div>
-      <div class="control control-slider">
-        <span class="control-label">Minimum stay <strong id="nights-label">2 nights</strong> per city</span>
-        <input id="nights" type="range" min="0" max="5" step="1" value="2" />
-        <span class="hint">Stops the optimizer from giving you 5 hours in Prague at 2am.</span>
+
+      <div class="control">
+        <span class="control-label">Transport allowed</span>
+        <div class="modes" id="modes">
+          <label class="mode-opt"><input type="checkbox" value="train" checked /><span>Rail</span></label>
+          <label class="mode-opt"><input type="checkbox" value="bus" checked /><span>Coach</span></label>
+          <label class="mode-opt"><input type="checkbox" value="flight" checked /><span>Flight</span></label>
+          <label class="mode-opt"><input type="checkbox" value="ferry" checked /><span>Ferry</span></label>
+        </div>
+        <span class="control-note">Anything over ~8 hours overland will route by air unless you turn flights off.</span>
       </div>
-      <button id="go" class="go" disabled>Route my trip</button>
+
+      <div class="control">
+        <span class="control-label">Default nights for new cities</span>
+        <div class="stepper">
+          <button type="button" class="step" id="def-minus" aria-label="Fewer default nights">−</button>
+          <span class="step-val" id="def-nights">2</span>
+          <button type="button" class="step" id="def-plus" aria-label="More default nights">+</button>
+        </div>
+        <span class="control-note">Stops the optimizer giving you 5 hours in Prague at 2am.</span>
+      </div>
+
+      <button id="go" class="btn btn-primary btn-go" disabled>
+        Route my trip
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+      </button>
     </div>
     <p id="error" class="error" hidden></p>
   </section>
 
   <section id="results" class="results" hidden>
-    <div class="results-head">
-      <h2>Your itineraries, <em>ranked and explained</em></h2>
-      <p id="results-sub"></p>
+    <div class="section-head">
+      <p class="kicker">Results</p>
+      <h2>Your itineraries, ranked and explained</h2>
+      <p id="results-sub" class="text-muted"></p>
     </div>
     <div class="results-grid">
       <div id="cards" class="cards"></div>
       <div class="map-panel">
         <div id="map"></div>
-        <div class="map-legend">
-          <span><i class="dot mode-train"></i> Rail</span>
-          <span><i class="dot mode-bus"></i> Coach</span>
-          <span><i class="dot mode-flight"></i> Flight</span>
-          <span><i class="dot mode-ferry"></i> Ferry</span>
-        </div>
+        <div class="map-legend" id="map-legend"></div>
       </div>
     </div>
   </section>
 
   <section class="empty-state" id="empty-state">
-    <div class="empty-icon">🗺️</div>
-    <p>Add at least two destinations above and Waypoint will crunch every possible ordering — all 40,320 of them if you max it out — against real multimodal fares.</p>
-    <div class="examples">
-      <span>Try a classic:</span>
-      <button class="example" data-cities="amsterdam,cologne,copenhagen,berlin,prague">Amsterdam · Cologne · Copenhagen · Berlin · Prague</button>
-      <button class="example" data-cities="lisbon,madrid,barcelona,paris,london">Iberia to Britain</button>
-      <button class="example" data-cities="rome,vienna,budapest,krakow,athens">Rome · Vienna · Budapest · Kraków · Athens</button>
+    <div class="empty-grid">
+      <div>
+        <svg class="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.106 5.553a2 2 0 0 0 1.788 0l3.659-1.83A1 1 0 0 1 21 4.619v12.764a1 1 0 0 1-.553.894l-4.553 2.277a2 2 0 0 1-1.788 0l-4.212-2.106a2 2 0 0 0-1.788 0l-3.659 1.83A1 1 0 0 1 3 19.381V6.618a1 1 0 0 1 .553-.894l4.553-2.277a2 2 0 0 1 1.788 0z"/><path d="M15 5.764v15"/><path d="M9 3.236v15"/></svg>
+        <p>Add at least two destinations — anywhere in the world — and Waypoint will crunch every possible ordering, all 40,320 of them if you max it out, against real multimodal fares.</p>
+      </div>
+      <div class="examples">
+        <p class="kicker">Try a classic</p>
+        <button class="example" data-cities="amsterdam,cologne,copenhagen,berlin,prague">
+          <span>Amsterdam · Cologne · Copenhagen · Berlin · Prague</span>
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+        </button>
+        <button class="example" data-cities="tokyo,seoul,hong_kong,bangkok,singapore">
+          <span>Tokyo · Seoul · Hong Kong · Bangkok · Singapore</span>
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+        </button>
+        <button class="example" data-cities="new_york,mexico_city,lima,rio,buenos_aires">
+          <span>New York · Mexico City · Lima · Rio · Buenos Aires</span>
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <section class="features">
+    <div class="section-head">
+      <p class="kicker">What it accounts for</p>
+      <h2>The six things a naive optimizer gets wrong</h2>
+    </div>
+    <div class="feature-rows">
+      <div class="feature">
+        <span class="feature-n">01</span>
+        <h3>Pin &amp; lock</h3>
+        <p>Fix certain cities to certain positions — a flight already booked, a wedding on the 14th. Everything else reorders around the fixed points.</p>
+      </div>
+      <div class="feature">
+        <span class="feature-n">02</span>
+        <h3>Backtracking allowed</h3>
+        <p>A naive loop optimizer refuses to produce Belgium→Germany→Belgium. Sometimes there-and-back genuinely beats the circle — Waypoint says so out loud.</p>
+      </div>
+      <div class="feature">
+        <span class="feature-n">03</span>
+        <h3>Open-jaw awareness</h3>
+        <p>Fly into Amsterdam, out of Munich. Assuming a return trip quietly inflates every itinerary, so the return is priced separately and shown.</p>
+      </div>
+      <div class="feature">
+        <span class="feature-n">04</span>
+        <h3>Rail pass math</h3>
+        <p>Does an Interrail pass beat point-to-point for <em>this</em> route, once seat reservations are counted? One line, one answer.</p>
+      </div>
+      <div class="feature">
+        <span class="feature-n">05</span>
+        <h3>Budget carrier reality</h3>
+        <p>Ryanair and Wizz fly hub-to-hub, not city-to-city. A router assuming any two airports connect produces fiction.</p>
+      </div>
+      <div class="feature">
+        <span class="feature-n">06</span>
+        <h3>Minimum stay</h3>
+        <p>Prevents the classic optimizer failure where you are “in Prague” for five hours at two in the morning.</p>
+      </div>
     </div>
   </section>
 </main>
 
+<section class="poster">
+  <div class="wrap">
+    <p class="poster-kicker">Positioning</p>
+    <h2>The layer above the booking sites — not a competitor to them.</h2>
+    <p class="poster-body">Waypoint decides the order and the mode, then hands you off to whoever sells the ticket.</p>
+  </div>
+</section>
+
 <footer class="footer">
   <div class="wrap">
-    <p><strong>Waypoint</strong> — the layer above the booking sites, not a competitor to them.</p>
-    <p class="footnote">Fares and durations are curated typical values for validation, not live quotes. Rail-pass math uses Interrail Global 2nd-class pricing. Budget-carrier routes reflect actual hub networks — if Ryanair doesn't fly it, neither do we.</p>
+    <p class="footnote">Surface corridors (rail, coach, ferry) and budget-carrier flights are curated typical values for concept validation, not live quotes. Longer air legs are modelled on a hub-and-spoke network — spokes feed their nearest hubs, hubs connect regionally, and only intercontinental gateways carry the long haul — so a connection costs real time and money instead of appearing as a fictional nonstop. Modelled fares are marked <span class="est-key">EST</span>. Rail-pass math uses Interrail Global 2nd-class pricing.</p>
+    <p class="footnote" id="foot-stats">Waypoint</p>
   </div>
 </footer>
 
