@@ -26,33 +26,52 @@ function* permutations(arr) {
 }
 
 // locks: { cityId: slotIndex } — 0-based fixed positions. Free cities are
-// permuted into the remaining slots around them.
+// permuted into the remaining slots around them. Yields arrays of *indices*
+// into cityIds so the hot loop never touches strings.
 function* orderings(cityIds, locks) {
   const n = cityIds.length;
-  const slots = new Array(n).fill(null);
+  const slots = new Array(n).fill(-1);
   const freeSlots = [];
   for (const [id, pos] of Object.entries(locks)) {
-    if (pos >= 0 && pos < n && cityIds.includes(id)) slots[pos] = id;
+    const idx = cityIds.indexOf(id);
+    if (idx >= 0 && pos >= 0 && pos < n) slots[pos] = idx;
   }
-  const lockedIds = new Set(slots.filter(Boolean));
-  const free = cityIds.filter((id) => !lockedIds.has(id));
-  for (let i = 0; i < n; i++) if (slots[i] === null) freeSlots.push(i);
+  const lockedIdx = new Set(slots.filter((x) => x >= 0));
+  const free = [];
+  for (let i = 0; i < n; i++) if (!lockedIdx.has(i)) free.push(i);
+  for (let i = 0; i < n; i++) if (slots[i] === -1) freeSlots.push(i);
 
   for (const perm of permutations(free)) {
     const order = slots.slice();
-    freeSlots.forEach((slot, i) => (order[slot] = perm[i]));
+    for (let i = 0; i < freeSlots.length; i++) order[freeSlots[i]] = perm[i];
     yield order;
   }
 }
 
-function routeScore(graph, profile, order, roundTrip, modes) {
-  let score = 0;
-  const seq = roundTrip ? [...order, order[0]] : order;
-  for (let i = 0; i < seq.length - 1; i++) {
-    const hop = graph.hop(profile, seq[i], seq[i + 1], modes);
-    if (!hop) return Infinity;
-    score += hop.score;
+// Pairwise score matrix for one profile. Building this once turns permutation
+// scoring into integer array reads — without it, an eight-city plan does ~850k
+// cache lookups with string keys and blocks the event loop for the best part
+// of a second, which is a free denial of service on a public endpoint.
+function scoreMatrix(graph, profile, cityIds, modes) {
+  const n = cityIds.length;
+  const m = new Float64Array(n * n);
+  for (let i = 0; i < n; i++) {
+    for (let j = 0; j < n; j++) {
+      if (i === j) continue;
+      const hop = graph.hop(profile, cityIds[i], cityIds[j], modes);
+      m[i * n + j] = hop ? hop.score : Infinity;
+    }
   }
+  return m;
+}
+
+function routeScoreIdx(matrix, n, order, roundTrip) {
+  let score = 0;
+  for (let i = 0; i < n - 1; i++) {
+    score += matrix[order[i] * n + order[i + 1]];
+    if (!Number.isFinite(score)) return Infinity;
+  }
+  if (roundTrip) score += matrix[order[n - 1] * n + order[0]];
   return score;
 }
 
@@ -209,17 +228,27 @@ function plan(graph, opts, passes) {
   const nightsFor = (id) =>
     Object.prototype.hasOwnProperty.call(nights, id) ? clampNights(nights[id]) : baseNights;
 
-  const itineraries = [];
-  for (const profile of Object.keys(PROFILES)) {
-    let bestOrder = null;
-    let bestScore = Infinity;
-    for (const order of orderings(cityIds, locks)) {
-      const s = routeScore(graph, profile, order, roundTrip, modes);
-      if (s < bestScore) {
-        bestScore = s;
-        bestOrder = order;
+  const n = cityIds.length;
+  const profiles = Object.keys(PROFILES);
+  const matrices = profiles.map((p) => scoreMatrix(graph, p, cityIds, modes));
+
+  // One enumeration pass scores every profile, instead of one pass each.
+  const best = profiles.map(() => ({ score: Infinity, order: null }));
+  for (const order of orderings(cityIds, locks)) {
+    for (let p = 0; p < profiles.length; p++) {
+      const s = routeScoreIdx(matrices[p], n, order, roundTrip);
+      if (s < best[p].score) {
+        best[p].score = s;
+        best[p].order = order.slice();
       }
     }
+  }
+
+  const itineraries = [];
+  for (let p = 0; p < profiles.length; p++) {
+    const profile = profiles[p];
+    const bestScore = best[p].score;
+    const bestOrder = best[p].order ? best[p].order.map((i) => cityIds[i]) : null;
     if (!bestOrder || bestScore === Infinity) {
       throw Object.assign(
         new Error(
