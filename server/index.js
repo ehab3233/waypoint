@@ -1,6 +1,7 @@
 'use strict';
 
 const fs = require('fs');
+const crypto = require('crypto');
 const path = require('path');
 const express = require('express');
 const { getPool } = require('./db');
@@ -72,11 +73,60 @@ const planLimiter = rateLimiter({ perIp: 20, global: 120, windowMs: 60_000, name
 const readLimiter = rateLimiter({ perIp: 240, global: 3000, windowMs: 60_000, name: 'API' });
 
 app.use(express.json({ limit: '32kb' }));
+
+const PUBLIC_DIR = path.join(__dirname, '..', 'public');
+
+/**
+ * Cache-bust the app's own CSS and JS.
+ *
+ * index.html is served no-cache but style.css/app.js were not, so after a
+ * deploy a browser could pair new markup with a stylesheet it had cached from
+ * the previous version — which renders as a completely broken page until the
+ * cache expires. Stamping the asset URLs with a hash of their contents means a
+ * changed asset is a changed URL, and the fresh HTML always pulls the matching
+ * pair. The hash is recomputed at boot, so a deploy (which restarts the
+ * service) picks it up with no manual version bumping.
+ */
+const ASSET_VERSION = (() => {
+  try {
+    const h = crypto.createHash('sha1');
+    for (const f of ['style.css', 'app.js']) h.update(fs.readFileSync(path.join(PUBLIC_DIR, f)));
+    return h.digest('hex').slice(0, 10);
+  } catch {
+    return String(Date.now());
+  }
+})();
+
+const INDEX_HTML = (() => {
+  try {
+    return fs
+      .readFileSync(path.join(PUBLIC_DIR, 'index.html'), 'utf8')
+      .replace('href="style.css"', `href="style.css?v=${ASSET_VERSION}"`)
+      .replace('src="app.js"', `src="app.js?v=${ASSET_VERSION}"`);
+  } catch {
+    return null;
+  }
+})();
+
+app.get(['/', '/index.html'], (req, res, next) => {
+  if (!INDEX_HTML) return next();
+  res.set('Cache-Control', 'no-cache');
+  res.type('html').send(INDEX_HTML);
+});
+
 app.use(
-  express.static(path.join(__dirname, '..', 'public'), {
-    maxAge: '1h',
+  express.static(PUBLIC_DIR, {
     setHeaders: (res, filePath) => {
-      if (filePath.endsWith('.html')) res.setHeader('Cache-Control', 'no-cache');
+      if (filePath.endsWith('.html')) {
+        res.setHeader('Cache-Control', 'no-cache');
+      } else if (filePath.includes(`${path.sep}vendor${path.sep}`)) {
+        // Third-party assets only change by filename, so they are safe to pin.
+        res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+      } else {
+        // Versioned by the ?v= stamp above; revalidate so a bare request can
+        // never serve a stale build.
+        res.setHeader('Cache-Control', 'no-cache');
+      }
     },
   })
 );
