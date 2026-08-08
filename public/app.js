@@ -2,76 +2,30 @@
 
 const MAX_CITIES = 8;
 const MAX_NIGHTS = 30;
-
-/* Lucide icons (lucide.dev) — inline SVG on currentColor, per the design system. */
-const ICON_PATHS = {
-  train:
-    '<path d="M8 3.1V7a4 4 0 0 0 8 0V3.1"/><path d="m9 15-1-1"/><path d="m15 15 1-1"/><path d="M9 19c-2.8 0-5-2.2-5-5v-4a8 8 0 0 1 16 0v4c0 2.8-2.2 5-5 5Z"/><path d="m8 19-2 3"/><path d="m16 19 2 3"/>',
-  bus:
-    '<path d="M8 6v6"/><path d="M15 6v6"/><path d="M2 12h19.6"/><path d="M18 18h3s.5-1.7.8-2.8c.1-.4.2-.8.2-1.2 0-.4-.1-.8-.2-1.2l-1.4-5C20.1 6.8 19.1 6 18 6H4a2 2 0 0 0-2 2v10h3"/><circle cx="7" cy="18" r="2"/><path d="M9 18h5"/><circle cx="16" cy="18" r="2"/>',
-  flight:
-    '<path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"/>',
-  ferry:
-    '<path d="M12 10.189V14"/><path d="M12 2v3"/><path d="M19 13V7a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v6"/><path d="M19.38 20A11.6 11.6 0 0 0 21 14l-8.188-3.639a2 2 0 0 0-1.624 0L3 14a11.6 11.6 0 0 0 2.81 7.76"/><path d="M2 21c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/>',
-  x: '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
-  pin:
-    '<path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/>',
-  unlock: '<rect width="18" height="11" x="3" y="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/>',
-  landing:
-    '<path d="M2 22h20"/><path d="M3.77 10.77 2 9l2-4.5 1.1.55c.55.28.9.84.9 1.45s.35 1.17.9 1.45L8 8.5l3-6 1.05.53a2 2 0 0 1 1.09 1.52l.72 5.4a2 2 0 0 0 1.09 1.52l4.4 2.2c.42.22.78.55 1.01.96l.6 1.03c.49.88-.06 1.98-1.06 2.1l-1.18.15c-.47.06-.95-.02-1.37-.24L4.29 11.15a2 2 0 0 1-.52-.38z"/>',
-  takeoff:
-    '<path d="M2 22h20"/><path d="M6.36 17.4 4 17l-2-4 1.1-.55a2 2 0 0 1 1.8 0l.17.1a2 2 0 0 0 1.8 0L8 12 5 6l.9-.45a2 2 0 0 1 2.09.2l4.02 3a2 2 0 0 0 2.1.2l4.19-2.06a2.41 2.41 0 0 1 1.73-.17L21 7a1.4 1.4 0 0 1 .87 1.99l-.38.76c-.23.46-.6.84-1.07 1.08L7.58 17.2a2 2 0 0 1-1.22.18z"/>',
-  mappin:
-    '<path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/>',
-  ticket:
-    '<path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"/><path d="M13 5v2"/><path d="M13 17v2"/><path d="M13 11v2"/>',
-  arrow: '<path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>',
-  moon: '<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9"/>',
-  euro:
-    '<path d="M4 10h12"/><path d="M4 14h9"/><path d="M19 6a7.7 7.7 0 0 0-5.2-2A7.9 7.9 0 0 0 6 12c0 4.4 3.5 8 7.8 8 2 0 3.8-.8 5.2-2"/>',
-  zap:
-    '<path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"/>',
-  armchair:
-    '<path d="M19 9V6a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v3"/><path d="M3 11v5a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-5a2 2 0 0 0-4 0v2H7v-2a2 2 0 0 0-4 0Z"/><path d="M5 18v2"/><path d="M19 18v2"/>',
-};
-
-const icon = (name) =>
-  `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON_PATHS[name]}</svg>`;
-
-const PROFILE_ICON = { cheapest: 'euro', fastest: 'zap', comfy: 'armchair' };
-const MODE_LABEL = { train: 'Rail', bus: 'Coach', flight: 'Flight', ferry: 'Ferry' };
-
-/* Line treatments read from the design tokens at runtime, so the map never
-   carries a hard-coded hex and stays in step with the stylesheet. */
-const token = (name) =>
-  getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-
-let MODE_STYLE = {};
-function readModeStyles() {
-  MODE_STYLE = {
-    train: { color: token('--color-text'), weight: 3, dashArray: null },
-    bus: { color: token('--color-neutral-600'), weight: 2.5, dashArray: '10 6' },
-    flight: { color: token('--color-accent'), weight: 2.5, dashArray: '2 7' },
-    ferry: { color: token('--color-neutral-400'), weight: 2.5, dashArray: '12 5 3 5' },
-  };
-}
+const MODE_ICONS = { train: '🚄', bus: '🚌', flight: '✈️', ferry: '⛴️' };
+const MODE_COLORS = { train: '#0e7c7b', bus: '#d9952f', flight: '#ff6b5e', ferry: '#4a7fb5' };
+const MODE_NAMES = { train: 'Rail', bus: 'Coach', flight: 'Flight', ferry: 'Ferry' };
+const BADGES = { cheapest: '💶', fastest: '⚡', comfy: '🛋️' };
 
 let ALL_CITIES = [];
 const state = {
-  cities: [],
-  locks: {},
+  cities: [],        // ordered as entered
+  locks: {},         // cityId -> slot index
   nights: {},        // cityId -> nights
   defaultNights: 2,
   modes: ['train', 'bus', 'flight', 'ferry'],
   roundTrip: false,
-  armed: null,       // chip queued for backspace deletion — never deleted on the first press
+  armed: null,       // chip queued for backspace deletion — never removed on the first press
 };
 let map = null;
 let mapLayer = null;
 
 const $ = (sel) => document.querySelector(sel);
+const flag = (cc) =>
+  String.fromCodePoint(...[...cc.toUpperCase()].map((c) => 0x1f1a5 + c.charCodeAt(0)));
 const cityById = (id) => ALL_CITIES.find((c) => c.id === id);
-const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const esc = (s) =>
+  String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const fmtDur = (min) => {
   const h = Math.floor(min / 60), m = Math.round(min % 60);
   return h ? `${h}h ${String(m).padStart(2, '0')}m` : `${m}m`;
@@ -79,7 +33,7 @@ const fmtDur = (min) => {
 const nightsFor = (id) =>
   Object.prototype.hasOwnProperty.call(state.nights, id) ? state.nights[id] : state.defaultNights;
 
-/* ---------- chips ---------- */
+/* ---------- chips + autocomplete ---------- */
 
 function lockLabel(id) {
   const pos = state.locks[id];
@@ -110,26 +64,28 @@ function renderChips() {
     const lock = lockLabel(id);
     const n = nightsFor(id);
     chip.innerHTML = `
-      <span class="cc">${esc(c.cc)}</span><span class="chip-name">${esc(c.name)}</span>
+      <span class="flag">${flag(c.cc)}</span>${esc(c.name)}
       ${lock ? `<span class="lock-badge">${lock}</span>` : ''}
       <span class="chip-nights" title="Nights in ${esc(c.name)}">
         <button class="n-minus" data-id="${id}" aria-label="One fewer night in ${esc(c.name)}" ${n === 0 ? 'disabled' : ''}>−</button>
         <span class="n-val">${n}n</span>
         <button class="n-plus" data-id="${id}" aria-label="One more night in ${esc(c.name)}" ${n >= MAX_NIGHTS ? 'disabled' : ''}>+</button>
       </span>
-      <button class="pin" title="Lock position" aria-label="Lock ${esc(c.name)} to a position" data-id="${id}">${icon('pin')}</button>
-      <button class="rm" title="Remove" aria-label="Remove ${esc(c.name)}" data-id="${id}">${icon('x')}</button>`;
+      <button class="pin" title="Lock position" data-id="${id}">📌</button>
+      <button class="rm" title="Remove" data-id="${id}">✕</button>`;
     box.appendChild(chip);
   });
   $('#go').disabled = state.cities.length < 2;
+
   const armedCity = state.armed && cityById(state.armed);
   const hint = $('#backspace-hint');
   if (armedCity) {
-    hint.textContent = `Press backspace again to remove ${armedCity.name}.`;
+    hint.textContent = `⌫ Press backspace again to remove ${armedCity.name}.`;
     hint.hidden = false;
   } else {
     hint.hidden = true;
   }
+
   $('#city-input').placeholder = state.cities.length
     ? state.cities.length >= MAX_CITIES
       ? 'That’s the limit — 8 keeps the math honest'
@@ -163,8 +119,6 @@ function setNights(id, n) {
   renderChips();
 }
 
-/* ---------- autocomplete ---------- */
-
 function hideSuggestions() {
   $('#suggestions').hidden = true;
   $('#suggestions').innerHTML = '';
@@ -174,11 +128,11 @@ function showSuggestions(q) {
   const ul = $('#suggestions');
   if (!q || state.cities.length >= MAX_CITIES) return hideSuggestions();
 
-  // Prefix matches rank above substring matches — with 396 cities, a plain
-  // substring search buries the city you actually typed.
-  const pool = ALL_CITIES.filter((c) => !state.cities.includes(c.id));
+  // With ~400 cities a prefix-only match hides too much, but a plain substring
+  // search buries the city you actually typed — so rank prefixes first.
   const scored = [];
-  for (const c of pool) {
+  for (const c of ALL_CITIES) {
+    if (state.cities.includes(c.id)) continue;
     const name = c.name.toLowerCase();
     const country = c.country.toLowerCase();
     let rank = -1;
@@ -195,13 +149,11 @@ function showSuggestions(q) {
   ul.innerHTML = matches
     .map(
       (c) =>
-        `<li data-id="${c.id}"><span class="cc">${esc(c.cc)}</span><span class="sug-name">${esc(c.name)}</span><span class="sub">${esc(c.country)}${c.region ? ` · ${esc(c.region)}` : ''}</span></li>`
+        `<li data-id="${c.id}"><span class="flag">${flag(c.cc)}</span> ${esc(c.name)}<span class="sub">${esc(c.country)}</span></li>`
     )
     .join('');
   ul.hidden = false;
 }
-
-/* ---------- lock menu ---------- */
 
 function openLockMenu(anchor, id) {
   closeLockMenu();
@@ -211,25 +163,26 @@ function openLockMenu(anchor, id) {
   const n = state.cities.length;
   const cur = state.locks[id];
   const opts = [
-    { v: undefined, t: 'Free — optimizer decides', ic: 'unlock' },
-    { v: 0, t: 'Lock as start', ic: 'landing' },
-    { v: n - 1, t: 'Lock as end', ic: 'takeoff' },
+    { v: undefined, t: '🔓 Free (optimizer decides)' },
+    { v: 0, t: '🛬 Lock as start' },
+    { v: n - 1, t: '🛫 Lock as end' },
   ];
-  for (let i = 1; i < n - 1; i++) opts.push({ v: i, t: `Lock as stop #${i + 1}`, ic: 'mappin' });
+  for (let i = 1; i < n - 1; i++) opts.push({ v: i, t: `📍 Lock as stop #${i + 1}` });
   menu.innerHTML = opts
     .map(
       (o) =>
-        `<button data-pos="${o.v === undefined ? '' : o.v}" class="${cur === o.v ? 'on' : ''}">${icon(o.ic)}${o.t}</button>`
+        `<button data-pos="${o.v === undefined ? '' : o.v}" class="${cur === o.v ? 'on' : ''}">${o.t}</button>`
     )
     .join('');
   document.body.appendChild(menu);
   const r = anchor.getBoundingClientRect();
-  menu.style.left = `${Math.min(r.left + window.scrollX, window.innerWidth - 200)}px`;
+  menu.style.left = `${Math.min(r.left + window.scrollX, window.innerWidth - 180)}px`;
   menu.style.top = `${r.bottom + window.scrollY + 6}px`;
   menu.addEventListener('click', (e) => {
     const btn = e.target.closest('button');
     if (!btn) return;
     const pos = btn.dataset.pos;
+    // one city per slot: evict whoever held it
     if (pos === '') delete state.locks[id];
     else {
       const p = Number(pos);
@@ -250,9 +203,8 @@ function closeLockMenu() {
 
 async function planTrip() {
   const btn = $('#go');
-  const label = btn.innerHTML;
   state.armed = null;
-  btn.disabled = true;
+  btn.classList.add('loading');
   btn.textContent = 'Crunching permutations…';
   $('#error').hidden = true;
   try {
@@ -277,8 +229,8 @@ async function planTrip() {
     $('#error').textContent = err.message;
     $('#error').hidden = false;
   } finally {
-    btn.innerHTML = label;
-    btn.disabled = state.cities.length < 2;
+    btn.classList.remove('loading');
+    btn.textContent = 'Route my trip';
     renderChips();
   }
 }
@@ -289,7 +241,9 @@ function renderResults(data) {
   const n = state.cities.length;
   const perms = [1, 1, 2, 6, 24, 120, 720, 5040, 40320][n];
   const modeText =
-    state.modes.length === 4 ? 'all modes' : state.modes.map((m) => MODE_LABEL[m].toLowerCase()).join(' + ');
+    state.modes.length === 4
+      ? 'all modes'
+      : state.modes.map((m) => MODE_NAMES[m].toLowerCase()).join(' + ') + ' only';
   $('#results-sub').textContent =
     `${n} destinations · ${perms.toLocaleString()} possible orderings evaluated per style · ` +
     (state.roundTrip ? 'round trip' : 'open-jaw') +
@@ -297,8 +251,9 @@ function renderResults(data) {
 
   const cards = $('#cards');
   cards.innerHTML = '';
-  data.itineraries.forEach((it, idx) => cards.appendChild(renderCard(it, idx === 0)));
-  renderLegend();
+  data.itineraries.forEach((it, idx) => {
+    cards.appendChild(renderCard(it, idx === 0));
+  });
   initMap();
   drawItinerary(data.itineraries[0]);
   $('#results').scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -306,31 +261,27 @@ function renderResults(data) {
 
 function renderCard(it, active) {
   const card = document.createElement('article');
-  card.className = 'itin' + (active ? ' active' : '');
+  card.className = 'card itin' + (active ? ' active' : '');
   card.dataset.profile = it.profile;
 
   const cityRow = (id, i, isReturn) => {
     const c = cityById(id);
-    const lock =
-      state.locks[id] !== undefined ? `<span class="locked-tag">${icon('pin')}LOCKED</span>` : '';
+    const lock = state.locks[id] !== undefined ? `<span class="locked-tag">📌 locked</span>` : '';
     const n = it.nights[id];
     const stay =
       !isReturn && n !== undefined
-        ? `<span class="stay">${icon('moon')}${n} night${n === 1 ? '' : 's'}</span>`
+        ? `<span class="stay">🌙 ${n} night${n === 1 ? '' : 's'}</span>`
         : '';
-    return `<li class="tl-city"><span class="n">${i + 1}</span><span class="cc">${esc(c.cc)}</span>${esc(c.name)}${lock}${stay}</li>`;
+    return `<li class="tl-city"><span class="n">${i + 1}</span><span class="flag">${flag(c.cc)}</span>${esc(c.name)}${lock}${stay}</li>`;
   };
   const legRow = (hop) => {
     const pills = hop.segments
       .map(
         (s) =>
-          `<span class="leg-pill mode-${s.mode}">${icon(s.mode)}${esc(s.op)}${s.estimated ? '<i class="est">EST</i>' : ''}</span>`
+          `<span class="leg-pill mode-${s.mode}">${MODE_ICONS[s.mode]} ${esc(s.op)}${s.estimated ? '<i class="est">EST</i>' : ''}</span>`
       )
       .join('');
-    const meta = `€${hop.price} · ${fmtDur(hop.durationMin)}${
-      hop.transfers ? ` · ${hop.transfers} transfer${hop.transfers > 1 ? 's' : ''}` : ' · direct'
-    }`;
-    return `<li class="tl-leg">${pills}<span>${meta}</span></li>`;
+    return `<li class="tl-leg">${pills}<span class="leg-meta">€${hop.price} · ${fmtDur(hop.durationMin)}${hop.transfers ? ` · ${hop.transfers} transfer${hop.transfers > 1 ? 's' : ''}` : ' · direct'}</span></li>`;
   };
 
   const seq = it.roundTrip ? [...it.order, it.order[0]] : it.order;
@@ -340,27 +291,25 @@ function renderCard(it, active) {
     if (i < seq.length - 1) timeline += legRow(it.hops[i]);
   });
 
-  const rpWin = it.railPass.applicable && it.railPass.delta > 0;
-
   card.innerHTML = `
     <div class="itin-head">
-      ${icon(PROFILE_ICON[it.profile])}
-      <span class="itin-label">${esc(it.label)}</span>
-      ${it.totals.estimated ? '<span class="est-flag">Includes estimated fares</span>' : ''}
+      <span class="itin-label">${BADGES[it.profile]} ${it.label}</span>
+      <span class="itin-badge badge-${it.profile}">${it.label}</span>
+      ${it.totals.estimated ? '<span class="est-flag">includes estimated fares</span>' : ''}
     </div>
     <div class="itin-totals">
-      <span class="tot"><b>€${it.totals.price}</b><span>Total transport</span></span>
-      <span class="tot"><b>${fmtDur(it.totals.durationMin)}</b><span>In transit</span></span>
-      <span class="tot"><b>${it.totals.transfers}</b><span>Transfers</span></span>
-      <span class="tot"><b>~${it.totals.estDays}d</b><span>Trip length</span></span>
+      <span class="tot"><b>€${it.totals.price}</b><span>total transport</span></span>
+      <span class="tot"><b>${fmtDur(it.totals.durationMin)}</b><span>in transit</span></span>
+      <span class="tot"><b>${it.totals.transfers}</b><span>transfers</span></span>
+      <span class="tot"><b>~${it.totals.estDays}d</b><span>trip length</span></span>
     </div>
     <ul class="timeline">${timeline}</ul>
-    <div class="railpass${rpWin ? ' win' : ''}">
-      ${icon('ticket')}<span><b>Rail pass check:</b> ${esc(it.railPass.verdict)}</span>
+    <div class="railpass ${it.railPass.applicable && it.railPass.delta > 0 ? 'win' : ''}">
+      🎫 <b>Rail pass check:</b> ${esc(it.railPass.verdict)}
     </div>
     <div class="notes">
       <h4>Why this order won</h4>
-      <ul>${it.notes.map((s) => `<li>${icon('arrow')}<span>${esc(s)}</span></li>`).join('')}</ul>
+      <ul>${it.notes.map((s) => `<li>${esc(s)}</li>`).join('')}</ul>
     </div>`;
 
   card.addEventListener('click', () => {
@@ -372,18 +321,6 @@ function renderCard(it, active) {
 }
 
 /* ---------- map ---------- */
-
-function renderLegend() {
-  const legend = $('#map-legend');
-  legend.innerHTML = state.modes
-    .map((mode) => {
-      const s = MODE_STYLE[mode];
-      return `<span><svg viewBox="0 0 22 6" aria-hidden="true"><line x1="0" y1="3" x2="22" y2="3"
-        stroke="${s.color}" stroke-width="${s.weight}"${s.dashArray ? ` stroke-dasharray="${s.dashArray}"` : ''}/></svg>${MODE_LABEL[mode]}</span>`;
-    })
-    .join('');
-  legend.style.gridTemplateColumns = `repeat(${Math.max(1, state.modes.length)}, minmax(0, 1fr))`;
-}
 
 function initMap() {
   if (typeof L === 'undefined') return; // map is progressive enhancement
@@ -412,7 +349,7 @@ function drawItinerary(it) {
     if (!c) return;
     pts.push([c.lat, c.lon]);
     L.marker([c.lat, c.lon], {
-      icon: L.divIcon({ className: 'city-marker', html: String(i + 1), iconSize: [22, 22] }),
+      icon: L.divIcon({ className: 'city-marker', html: String(i + 1), iconSize: [24, 24] }),
     })
       .bindTooltip(`${i + 1}. ${c.name}`, { direction: 'top' })
       .addTo(mapLayer);
@@ -423,16 +360,20 @@ function drawItinerary(it) {
       const a = cityById(s.from);
       const b = cityById(s.to);
       if (!a || !b) return;
-      const style = MODE_STYLE[s.mode] || MODE_STYLE.train;
       L.polyline(
         [
           [a.lat, a.lon],
           [b.lat, b.lon],
         ],
-        { ...style, opacity: 0.9, lineCap: 'butt' }
+        {
+          color: MODE_COLORS[s.mode],
+          weight: 3.5,
+          opacity: 0.85,
+          dashArray: s.mode === 'flight' ? '2 8' : s.mode === 'bus' ? '8 6' : null,
+        }
       )
         .bindTooltip(
-          `${MODE_LABEL[s.mode]} · ${s.op} · €${s.price} · ${fmtDur(s.effMin)}${s.estimated ? ' (est.)' : ''}`,
+          `${MODE_ICONS[s.mode]} ${s.op} · €${s.price} · ${fmtDur(s.effMin)}${s.estimated ? ' (est.)' : ''}`,
           { sticky: true }
         )
         .addTo(mapLayer);
@@ -449,30 +390,27 @@ function drawItinerary(it) {
 
 function syncDefaultNights() {
   $('#def-nights').textContent = String(state.defaultNights);
+  $('#def-nights-label').textContent = `${state.defaultNights} night${state.defaultNights === 1 ? '' : 's'}`;
   $('#def-minus').disabled = state.defaultNights <= 0;
   $('#def-plus').disabled = state.defaultNights >= MAX_NIGHTS;
   renderChips();
 }
 
 async function init() {
-  readModeStyles();
   ALL_CITIES = await (await fetch('/api/cities')).json();
 
-  // Stat row + footer, filled from live data rather than hard-coded numbers.
   const countries = new Set(ALL_CITIES.map((c) => c.country)).size;
-  $('#stat-cities').textContent = ALL_CITIES.length.toLocaleString();
-  $('#stat-countries').textContent = String(countries);
+  $('#empty-blurb').textContent =
+    `Add at least two destinations above — anywhere across ${ALL_CITIES.length} cities in ${countries} countries — and Waypoint will crunch every possible ordering, all 40,320 of them if you max it out, against real multimodal fares.`;
   try {
     const h = await (await fetch('/api/health')).json();
-    const legs = (h.curatedLegs || 0) + (h.syntheticLegs || 0);
-    $('#stat-legs').textContent = legs.toLocaleString();
     const foot = $('#foot-stats');
     if (foot) {
       foot.textContent =
-        `Waypoint · ${ALL_CITIES.length} cities · ${countries} countries · ${h.curatedLegs} curated legs · ${h.syntheticLegs} modelled air legs`;
+        `${ALL_CITIES.length} cities · ${countries} countries · ${h.curatedLegs} curated legs · ${h.syntheticLegs} modelled air legs`;
     }
   } catch {
-    $('#stat-legs').textContent = '—';
+    /* stats are decorative; the planner works without them */
   }
 
   const input = $('#city-input');
@@ -528,12 +466,14 @@ async function init() {
   document.addEventListener('click', (e) => {
     if (!e.target.closest('.lock-menu') && !e.target.closest('.pin')) closeLockMenu();
     if (!e.target.closest('.autocomplete')) hideSuggestions();
-    if (!e.target.closest('.chipbox')) disarm();
+    if (!e.target.closest('.chip-box')) disarm();
   });
 
-  document.querySelectorAll('input[name="trip"]').forEach((radio) =>
-    radio.addEventListener('change', () => {
-      state.roundTrip = radio.value === 'round' && radio.checked;
+  document.querySelectorAll('.seg').forEach((btn) =>
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.seg').forEach((b) => b.classList.remove('active'));
+      btn.classList.add('active');
+      state.roundTrip = btn.dataset.trip === 'round';
     })
   );
 

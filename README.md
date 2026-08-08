@@ -20,6 +20,7 @@ Worldwide: **396 cities across 126 countries**, routed over rail, coach, ferry a
 - **Rail pass math** — one line: does an Interrail Global pass beat point-to-point for *this* route, reservations included?
 - **Hub-and-spoke reality** — spokes feed their nearest hubs, hubs connect regionally, only intercontinental gateways carry long haul; a connection costs real time and money rather than appearing as a fictional nonstop
 - **Backspace protection** — the first backspace only *arms* the last destination; it takes a second press to remove it
+- **Hardened for public hosting** — rate limiting per IP and globally, CSP and security headers, a bounded search log, and no stack traces in responses
 
 ## Install (bare-metal Linux VM)
 
@@ -72,8 +73,8 @@ server/railpass.js Interrail vs point-to-point comparison
 server/seed.js     idempotent schema + dataset load into PostgreSQL
 data/dataset.json  396 cities / 126 countries, 201 curated legs; ~8,450 further
                    air legs are generated at load time from the hub model
-public/vendor/ds/  the Modernist design system (tokens + components) and Archivo,
-                   both vendored so the VM needs no outbound network to render
+public/vendor/     Leaflet and the Fraunces/Inter webfonts, vendored so the VM
+                   needs no outbound network to render
 scripts/           install.sh (bare-metal), update.sh (git-based updates)
 ```
 
