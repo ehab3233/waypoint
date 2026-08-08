@@ -10,6 +10,19 @@
 #
 set -euo pipefail
 
+# This script rewrites itself during the git reset below, and bash reads a
+# script incrementally as it runs — so a changed file can leave the running
+# shell reading from the wrong byte offset. Re-run from a private copy first.
+if [ "${WAYPOINT_UPDATE_REEXEC:-}" != "1" ]; then
+  _self_copy="$(mktemp /tmp/waypoint-update.XXXXXX)"
+  cat "$0" > "$_self_copy"
+  chmod +x "$_self_copy"
+  WAYPOINT_UPDATE_REEXEC=1 bash "$_self_copy" "$@"
+  _rc=$?
+  rm -f "$_self_copy"
+  exit "$_rc"
+fi
+
 APP_NAME="waypoint"
 APP_USER="waypoint"
 APP_DIR="/opt/waypoint"
