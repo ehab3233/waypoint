@@ -45,11 +45,29 @@ log "Updating ${OLD_REV} → ${NEW_REV}…"
 # untracked and therefore survives.
 sudo -u "$APP_USER" git reset --hard "origin/${BRANCH}" --quiet
 
-log "Installing dependencies…"
-sudo -u "$APP_USER" bash -c "cd '$APP_DIR' && npm ci --omit=dev --no-audit --no-fund --silent"
+NODE_BIN="$(command -v node)"
+NPM_BIN="$(command -v npm)"
+[ -x "$NODE_BIN" ] && [ -x "$NPM_BIN" ] || die "node/npm not found on PATH."
+
+as_app() { sudo -u "$APP_USER" -H bash -c "$1"; }
+
+deps_ok() {
+  as_app "cd '$APP_DIR' && '$NODE_BIN' -e \"require('express');require('pg')\"" >/dev/null 2>&1
+}
+
+# npm can exit 0 with an unusable tree, so verify rather than trust it.
+for attempt in 1 2 3; do
+  log "Installing dependencies (attempt ${attempt})…"
+  as_app "cd '$APP_DIR' && '$NPM_BIN' ci --omit=dev --no-audit --no-fund" || true
+  deps_ok && break
+  log "Dependency tree is incomplete — clearing node_modules and retrying."
+  rm -rf "${APP_DIR}/node_modules"
+  [ "$attempt" -eq 3 ] && die "Could not install Node dependencies. The old build is still running; nothing was restarted."
+done
+log "Dependencies verified."
 
 log "Re-seeding dataset…"
-sudo -u "$APP_USER" bash -c "cd '$APP_DIR' && set -a && . ./.env && node server/seed.js"
+as_app "cd '$APP_DIR' && set -a && . ./.env && set +a && '$NODE_BIN' server/seed.js"
 
 log "Restarting service…"
 systemctl restart "$APP_NAME"

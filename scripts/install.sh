@@ -45,7 +45,13 @@ if [ "$need_node" -eq 1 ]; then
   curl -fsSL "https://deb.nodesource.com/setup_${NODE_MAJOR}.x" | bash - >/dev/null
   apt-get install -y -qq nodejs >/dev/null
 fi
-log "Node $(node -v), npm $(npm -v)"
+# Resolve the binaries by absolute path. `sudo -u` runs with sudoers' secure_path,
+# which can differ from root's PATH — without this the service user can silently
+# end up on a different Node than the one we just checked.
+NODE_BIN="$(command -v node)"
+NPM_BIN="$(command -v npm)"
+[ -x "$NODE_BIN" ] && [ -x "$NPM_BIN" ] || die "node/npm not found after install."
+log "Node $("$NODE_BIN" -v) ($NODE_BIN), npm $("$NPM_BIN" -v)"
 
 # --- PostgreSQL --------------------------------------------------------------
 if ! command -v psql >/dev/null 2>&1; then
@@ -119,11 +125,33 @@ chown "${APP_USER}:${APP_USER}" "$ENV_FILE"
 chmod 600 "$ENV_FILE"
 
 # --- App dependencies + seed -------------------------------------------------
-log "Installing app dependencies…"
-sudo -u "$APP_USER" bash -c "cd '$APP_DIR' && npm ci --omit=dev --no-audit --no-fund --silent"
+# npm can exit 0 having installed nothing usable (the "Exit handler never
+# called!" bug leaves empty package directories behind), so never trust the
+# exit code — prove the runtime dependencies actually load before continuing.
+as_app() { sudo -u "$APP_USER" -H bash -c "$1"; }
+
+deps_ok() {
+  as_app "cd '$APP_DIR' && '$NODE_BIN' -e \"require('express');require('pg')\"" >/dev/null 2>&1
+}
+
+install_deps() {
+  for attempt in 1 2 3; do
+    log "Installing app dependencies (attempt ${attempt})…"
+    as_app "cd '$APP_DIR' && '$NPM_BIN' ci --omit=dev --no-audit --no-fund" || true
+    if deps_ok; then
+      log "Dependencies verified."
+      return 0
+    fi
+    log "Dependency tree is incomplete — clearing node_modules and retrying."
+    rm -rf "${APP_DIR}/node_modules"
+  done
+  die "Could not install Node dependencies after 3 attempts. Check network access to the npm registry."
+}
+
+install_deps
 
 log "Seeding database with the transport dataset…"
-sudo -u "$APP_USER" bash -c "cd '$APP_DIR' && set -a && . ./.env && node server/seed.js"
+as_app "cd '$APP_DIR' && set -a && . ./.env && set +a && '$NODE_BIN' server/seed.js"
 
 # --- systemd -----------------------------------------------------------------
 log "Installing systemd service…"
@@ -139,7 +167,7 @@ User=${APP_USER}
 Group=${APP_USER}
 WorkingDirectory=${APP_DIR}
 EnvironmentFile=${APP_DIR}/.env
-ExecStart=$(command -v node) server/index.js
+ExecStart=${NODE_BIN} server/index.js
 Restart=always
 RestartSec=3
 NoNewPrivileges=true
